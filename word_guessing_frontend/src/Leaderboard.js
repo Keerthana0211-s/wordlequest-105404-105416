@@ -22,12 +22,18 @@ export default function Leaderboard({ onBack }) {
         const resp = await fetch(API_URL);
         if (!resp.ok) throw new Error("Network error");
         const raw = await resp.json();
-        // SheetDB returns array of objects with {"name":..., "attempts":...}
+        // SheetDB returns array of objects with {"Name":..., "Attempts":...} (case-sensitive)
         // If attempt is string, convert to number
         let result = raw.map(x => ({
-          name: x.name,
-          attempts: Number(x.attempts),
+          // SheetDB sends "Name" and "Attempts" (uppercase first)
+          name: x.Name || x.name, // Try both, but "Name" is expected
+          attempts: Number(x.Attempts || x.attempts),
         })).filter(x => typeof x.attempts === "number" && !!x.name);
+        // Log for diagnostics when empty or missing fields
+        if (!result.length || result.some(row => !row.name)) {
+          // eslint-disable-next-line no-console
+          console.log("Diagnostics: SheetDB raw leaderboard data:", raw);
+        }
         // Sort ascending (fewest attempts = best)
         result.sort((a, b) => a.attempts - b.attempts);
         setData(result);
@@ -65,7 +71,9 @@ export default function Leaderboard({ onBack }) {
             {data.map((row, idx) => (
               <tr key={idx} style={{background: idx % 2 === 1 ? "rgba(0,0,0,0.02)" : "transparent"}}>
                 <td style={{paddingRight: 10, fontWeight: 700}}>{idx + 1}</td>
-                <td style={{padding: "4px 0"}}>{row.name}</td>
+                <td style={{padding: "4px 0"}}>
+                  {row.name || <span style={{color: "#aaa"}}>—</span>}
+                </td>
                 <td style={{padding: "4px 0", fontVariantNumeric: "tabular-nums"}}>{row.attempts}</td>
               </tr>
             ))}
