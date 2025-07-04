@@ -37,15 +37,22 @@ async function submitScoreToLeaderboard(name, attempts) {
   }
 }
 
-// A minimal word list for secret word randomization.
-// Would later be replaced by a larger local or remote word list.
-const WORD_LIST = [
-  'CRANE', 'SWORD', 'PLANT', 'CHART', 'SHARE', 'WORLD', 'GAMES', 'PRONE', 'ALERT', 'GLIDE'
-];
-
-// Utility: Pick a random word (always uppercase, length 5)
-function pickRandomWord() {
-  return WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
+/**
+ * Fetches a random 5-letter word from random-word-api.herokuapp.com.
+ * Returns uppercase string or null on failure.
+ */
+async function fetchRandomSolutionWord() {
+  try {
+    const resp = await fetch('https://random-word-api.herokuapp.com/word?length=5');
+    if (!resp.ok) throw new Error("Failed to fetch");
+    const data = await resp.json();
+    if (Array.isArray(data) && data[0] && typeof data[0] === "string") {
+      return data[0].toUpperCase();
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
 }
 
 function App() {
@@ -66,6 +73,9 @@ function App() {
   // status: 'in_progress' | 'win' | 'loss'
   const [status, setStatus] = useState('in_progress');
   const [message, setMessage] = useState('');
+  // Loading state for solution word
+  const [loadingSolution, setLoadingSolution] = useState(false);
+
   // Leaderboard UI and name prompt state
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
@@ -74,19 +84,31 @@ function App() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(""); // err/success
 
-  // On mount or reset: start a new game.
+  // On mount or reset: start a new game, fetching a random word.
   const startNewGame = useCallback(() => {
-    setSecretWord(pickRandomWord());
+    setLoadingSolution(true);
+    setSecretWord('');
     setGuesses([]);
     setCurrentGuess('');
     setAttempt(0);
     setStatus('in_progress');
-    setMessage('Guess the 5-letter word!');
+    setMessage('Loading new word...');
     setShowNameModal(false);
     setPlayerName("");
     setPendingScore(null);
     setSubmitLoading(false);
     setSubmitStatus("");
+    // Fetch the word from API
+    fetchRandomSolutionWord().then(word => {
+      if (word && word.length === 5 && /^[A-Z]{5}$/.test(word)) {
+        setSecretWord(word);
+        setMessage('Guess the 5-letter word!');
+        setLoadingSolution(false);
+      } else {
+        setMessage("Error loading word. Check your connection & reset.");
+        setLoadingSolution(false);
+      }
+    });
   }, []);
 
   // On mount, start first game
@@ -96,7 +118,7 @@ function App() {
 
   // Handle guess submission (called on Enter key or soon via on-screen keyboard)
   const handleGuessSubmit = useCallback(() => {
-    if (status !== 'in_progress') return;
+    if (status !== 'in_progress' || loadingSolution || !secretWord) return;
     const guess = currentGuess.trim().toUpperCase();
     if (guess.length !== 5) {
       setMessage('Enter a 5-letter word.');
@@ -126,7 +148,7 @@ function App() {
       setMessage(`${6 - newGuesses.length} attempts left.`);
     }
     setCurrentGuess('');
-  }, [currentGuess, guesses, secretWord, attempt, status]);
+  }, [currentGuess, guesses, secretWord, attempt, status, loadingSolution]);
 
   // Handle text/keyboard input for the current guess (for now, simple input)
   // PUBLIC_INTERFACE
@@ -206,127 +228,161 @@ function App() {
             onClick={handleShowLeaderboard}
             aria-label="Leaderboard"
           >Leaderboard</button>
-          {/* Guess Grid (6x5) */}
-          <div className="guess-grid" aria-label="Guess grid">
-            {
-              Array.from({ length: 6 }).map((_, rowIdx) => {
-                // For rows with a guess: compute feedback
-                const guess = guesses[rowIdx] || '';
-                const guessLetters = guess.padEnd(5, ' ').split('');
-                let feedback = Array(5).fill('empty');
-                if (guesses[rowIdx]) {
-                  // Feedback logic: "green" for correct pos, "yellow" for right letter/wrong pos, "gray" if absent
-                  const answerArr = secretWord.split('');
-                  const guessArr = guess.split('');
-                  const used = Array(5).fill(false);
-                  feedback = Array(5).fill('gray');
-
-                  // Pass 1: greens
-                  for (let i = 0; i < 5; i++) {
-                    if (guessArr[i] === answerArr[i]) {
-                      feedback[i] = 'green';
-                      used[i] = true;
-                    }
-                  }
-                  // Pass 2: yellows
-                  for (let i = 0; i < 5; i++) {
-                    if (feedback[i] === 'green') continue;
-                    const idx = answerArr.findIndex(
-                      (ch, j) => ch === guessArr[i] && !used[j] && guessArr[j] !== answerArr[j]
-                    );
-                    if (idx !== -1 && guessArr[i] !== '' && guessArr[i] !== ' ') {
-                      feedback[i] = 'yellow';
-                      used[idx] = true;
-                    }
-                  }
-                } else if (rowIdx === guesses.length && status === 'in_progress') {
-                  // The active row—show input so far, rest empty, no feedback coloring
-                  const inputLetters = currentGuess.padEnd(5, ' ').split('');
-                  for (let j = 0; j < 5; j++) {
-                    guessLetters[j] = inputLetters[j];
-                  }
-                  feedback = Array(5).fill('empty');
+          {/* Show loading spinner/message if solution is loading */}
+          {loadingSolution ? (
+            <div style={{
+              margin: "2.5rem 0",
+              fontWeight: 500,
+              fontSize: "1.2rem",
+              color: "var(--text-secondary)",
+              letterSpacing: 2
+            }}>
+              Loading word...
+              <span style={{
+                marginLeft: 10, display: "inline-block",
+                width: 18, height: 18,
+                border: "3px solid #bbb",
+                borderRadius: "50%",
+                borderTopColor: "var(--button-bg)",
+                animation: "spin 1s linear infinite",
+                verticalAlign: "middle"
+              }}/>
+              <style>
+                {`
+                @keyframes spin {
+                  0% { transform: rotate(0deg);}
+                  100% {transform: rotate(360deg);}
                 }
-                return (
-                  <div className="guess-row" key={rowIdx}>
-                    {guessLetters.map((ch, colIdx) => (
-                      <div
-                        key={colIdx}
-                        className={`guess-cell guess-cell-${feedback[colIdx]}`}
-                        aria-label={ch !== ' ' ? ch : 'empty'}
-                      >
-                        {ch}
+                `}
+              </style>
+            </div>
+          ) : (
+            <>
+              {/* Guess Grid (6x5) */}
+              <div className="guess-grid" aria-label="Guess grid">
+                {
+                  Array.from({ length: 6 }).map((_, rowIdx) => {
+                    // For rows with a guess: compute feedback
+                    const guess = guesses[rowIdx] || '';
+                    const guessLetters = guess.padEnd(5, ' ').split('');
+                    let feedback = Array(5).fill('empty');
+                    if (guesses[rowIdx]) {
+                      // Feedback logic: "green" for correct pos, "yellow" for right letter/wrong pos, "gray" if absent
+                      const answerArr = secretWord.split('');
+                      const guessArr = guess.split('');
+                      const used = Array(5).fill(false);
+                      feedback = Array(5).fill('gray');
+
+                      // Pass 1: greens
+                      for (let i = 0; i < 5; i++) {
+                        if (guessArr[i] === answerArr[i]) {
+                          feedback[i] = 'green';
+                          used[i] = true;
+                        }
+                      }
+                      // Pass 2: yellows
+                      for (let i = 0; i < 5; i++) {
+                        if (feedback[i] === 'green') continue;
+                        const idx = answerArr.findIndex(
+                          (ch, j) => ch === guessArr[i] && !used[j] && guessArr[j] !== answerArr[j]
+                        );
+                        if (idx !== -1 && guessArr[i] !== '' && guessArr[i] !== ' ') {
+                          feedback[i] = 'yellow';
+                          used[idx] = true;
+                        }
+                      }
+                    } else if (rowIdx === guesses.length && status === 'in_progress') {
+                      // The active row—show input so far, rest empty, no feedback coloring
+                      const inputLetters = currentGuess.padEnd(5, ' ').split('');
+                      for (let j = 0; j < 5; j++) {
+                        guessLetters[j] = inputLetters[j];
+                      }
+                      feedback = Array(5).fill('empty');
+                    }
+                    return (
+                      <div className="guess-row" key={rowIdx}>
+                        {guessLetters.map((ch, colIdx) => (
+                          <div
+                            key={colIdx}
+                            className={`guess-cell guess-cell-${feedback[colIdx]}`}
+                            aria-label={ch !== ' ' ? ch : 'empty'}
+                          >
+                            {ch}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                );
-              })
-            }
-          </div>
-          {/* Guess input (basic text input for now) */}
-          {(status === 'in_progress') && (
-            <form
-              style={{marginBottom: '1.5rem'}}
-              onSubmit={e => { e.preventDefault(); handleGuessSubmit(); }}
-              aria-label="Guess input form"
-            >
-              <input
-                type="text"
-                inputMode="text"
-                maxLength={5}
-                value={currentGuess}
-                onChange={handleInputChange}
-                onKeyUp={handleInputKeyUp}
-                style={{
-                  padding: '8px',
-                  fontSize: 20,
-                  width: 120,
-                  textAlign: 'center',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 8,
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)'
-                }}
-                disabled={status !== 'in_progress'}
-                aria-label="Enter 5-letter guess"
-                autoFocus
-              />
-              <button
-                type="submit"
-                style={{
-                  marginLeft: 12,
-                  padding: '10px 18px',
-                  backgroundColor: 'var(--button-bg)',
-                  color: 'var(--button-text)',
-                  border: 0,
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  fontSize: 16,
-                  cursor: 'pointer'
-                }}
-                disabled={currentGuess.length !== 5 || status !== 'in_progress'}
-              >
-                Guess
-              </button>
-            </form>
+                    );
+                  })
+                }
+              </div>
+              {/* Guess input (basic text input for now) */}
+              {(status === 'in_progress') && (
+                <form
+                  style={{marginBottom: '1.5rem'}}
+                  onSubmit={e => { e.preventDefault(); handleGuessSubmit(); }}
+                  aria-label="Guess input form"
+                >
+                  <input
+                    type="text"
+                    inputMode="text"
+                    maxLength={5}
+                    value={currentGuess}
+                    onChange={handleInputChange}
+                    onKeyUp={handleInputKeyUp}
+                    style={{
+                      padding: '8px',
+                      fontSize: 20,
+                      width: 120,
+                      textAlign: 'center',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 8,
+                      backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)'
+                    }}
+                    disabled={status !== 'in_progress' || loadingSolution}
+                    aria-label="Enter 5-letter guess"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      marginLeft: 12,
+                      padding: '10px 18px',
+                      backgroundColor: 'var(--button-bg)',
+                      color: 'var(--button-text)',
+                      border: 0,
+                      borderRadius: 8,
+                      fontWeight: 600,
+                      fontSize: 16,
+                      cursor: 'pointer'
+                    }}
+                    disabled={currentGuess.length !== 5 || status !== 'in_progress' || loadingSolution}
+                  >
+                    Guess
+                  </button>
+                </form>
+              )}
+
+              {/* Game state controls */}
+              <div style={{marginTop: status === 'in_progress' ? 0 : '2rem'}}>
+                {(status === 'win' || status === 'loss') && (
+                  <>
+                    <div style={{margin: '1rem 0'}}><strong>{status === 'win' ? '🎉 Congratulations!' : '😞 Try Again!'}</strong></div>
+                  </>
+                )}
+                <button
+                  className="theme-toggle"
+                  style={{margin: 0, marginTop: '0.5rem', fontSize: 15}}
+                  onClick={handleReset}
+                  aria-label="Start a new game"
+                  disabled={loadingSolution}
+                >
+                  Reset
+                </button>
+              </div>
+            </>
           )}
 
-          {/* Game state controls */}
-          <div style={{marginTop: status === 'in_progress' ? 0 : '2rem'}}>
-            {(status === 'win' || status === 'loss') && (
-              <>
-                <div style={{margin: '1rem 0'}}><strong>{status === 'win' ? '🎉 Congratulations!' : '😞 Try Again!'}</strong></div>
-              </>
-            )}
-            <button
-              className="theme-toggle"
-              style={{margin: 0, marginTop: '0.5rem', fontSize: 15}}
-              onClick={handleReset}
-              aria-label="Start a new game"
-            >
-              Reset
-            </button>
-          </div>
           {/* Modal for entering player name & submitting win */}
           {showNameModal && (
             <div
