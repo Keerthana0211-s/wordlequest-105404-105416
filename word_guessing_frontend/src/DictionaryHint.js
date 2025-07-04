@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
  * DictionaryHint component
  * Fetches and displays a dictionary definition or example for a word, intended as a hint.
  * Uses the Free Dictionary API (https://api.dictionaryapi.dev/api/v2/entries/en/<word>).
- * Falls back gracefully to shuffled/letter hint if API fails.
+ * If unavailable, falls back to a simple "No descriptive hint available." message.
  * 
  * Props:
  *   - word (string): the word to fetch and show a descriptive hint for.
@@ -23,17 +23,28 @@ export default function DictionaryHint({ word }) {
 
     async function fetchDefinition() {
       try {
-        const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`;
+        const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(
+          word.toLowerCase()
+        )}`;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error("No definition found");
         const data = await resp.json();
         // Find a definition or example
-        if (Array.isArray(data) && data[0] && data[0].meanings && data[0].meanings.length) {
+        if (
+          Array.isArray(data) &&
+          data[0] &&
+          data[0].meanings &&
+          data[0].meanings.length
+        ) {
           // Grab the first non-empty definition or example
           let hintText = "";
-          const firstMeaning = data[0].meanings.find(m => m.definitions && m.definitions.length > 0);
+          const firstMeaning = data[0].meanings.find(
+            (m) => m.definitions && m.definitions.length > 0
+          );
           if (firstMeaning) {
-            const defObj = firstMeaning.definitions.find(d => d.definition && d.definition.length > 0);
+            const defObj = firstMeaning.definitions.find(
+              (d) => d.definition && d.definition.length > 0
+            );
             if (defObj && defObj.definition) {
               hintText = defObj.definition;
             } else if (defObj && defObj.example) {
@@ -68,15 +79,6 @@ export default function DictionaryHint({ word }) {
     fetchDefinition();
   }, [word]);
 
-  // Fallback shuffled/letter hint if error
-  function fallbackHint() {
-    return (
-      <span>
-        The word starts with <b>{word[0]}</b> &mdash; Shuffled: <b>{word.split('').sort(() => Math.random() - 0.5).join('').toUpperCase()}</b>
-      </span>
-    );
-  }
-
   return (
     <div
       style={{
@@ -90,17 +92,22 @@ export default function DictionaryHint({ word }) {
         fontSize: 18,
         letterSpacing: 1,
         border: "2px solid #ffce64",
-        boxShadow: "0 0 8px #f6d07c60"
+        boxShadow: "0 0 8px #f6d07c60",
       }}
       aria-live="polite"
     >
-      <span role="img" aria-label="hint" style={{marginRight: 7}}>💡</span>
+      <span role="img" aria-label="hint" style={{ marginRight: 7 }}>
+        💡
+      </span>
       {loading && <span>Fetching hint...</span>}
-      {!loading && hint && <span>Hint: <i>{hint}</i></span>}
+      {!loading && hint && (
+        <span>
+          Hint: <i>{hint}</i>
+        </span>
+      )}
       {!loading && !hint && error && (
         <span>
-          <span>Hint: </span>
-          {fallbackHint()}
+          Hint: <i>No descriptive hint available.</i>
         </span>
       )}
     </div>
