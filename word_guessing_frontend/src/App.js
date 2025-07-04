@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import Leaderboard from "./Leaderboard";
 import { playCorrectSound, playIncorrectSound } from "./sfx";
+import DictionaryHint from "./DictionaryHint";
 
 /*
   --- INITIAL MAIN GAME STATE MANAGEMENT ---
@@ -466,34 +467,9 @@ function App() {
                       Guess
                     </button>
                   </form>
-                  {/* --- HINT for FINAL GUESS --- */}
+                  {/* --- HINT for FINAL GUESS: Descriptive Dictionary Hint --- */}
                   {guesses.length === 5 && secretWord && (
-                    <div
-                      style={{
-                        margin: "0.7rem auto 0.6rem",
-                        padding: "11px 16px",
-                        maxWidth: 360,
-                        borderRadius: 10,
-                        background: "#ffe19f",
-                        color: "#613320",
-                        fontWeight: 600,
-                        fontSize: 18,
-                        letterSpacing: 1,
-                        border: "2px solid #ffce64",
-                        boxShadow: "0 0 8px #f6d07c60"
-                      }}
-                      aria-live="polite"
-                    >
-                      <span role="img" aria-label="hint" style={{marginRight: 7}}>💡</span>
-                      <span>Hint: The word starts with <b>{secretWord[0]}</b> &mdash; Try: <b>
-                        {secretWord
-                          .split('')
-                          .sort(() => Math.random() - 0.5)
-                          .join('')
-                          .toUpperCase()
-                        }
-                      </b></span>
-                    </div>
+                    <DictionaryHint word={secretWord} />
                   )}
                 </>
               )}
