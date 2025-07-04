@@ -27,15 +27,43 @@ const LEADERBOARD_API = "https://sheetdb.io/api/v1/jm22e5onx3agw";
 async function submitScoreToLeaderboard(name, attempts) {
   // SheetDB expects attempts as type string, and fields as string keys.
   const payload = { data: [{ name: String(name), attempts: String(attempts) }] };
+
+  // --- Debug Logging Start ---
+  // eslint-disable-next-line no-console
+  console.log("SUBMIT SCORE: About to POST to SheetDB", {
+    url: LEADERBOARD_API,
+    headers: { "Content-Type": "application/json" },
+    payload: JSON.stringify(payload)
+  });
+  // --- Debug Logging End ---
+
   try {
     const resp = await fetch(LEADERBOARD_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
+
+    let respText = null;
     let respData = null;
-    try { respData = await resp.json(); } catch {}
-    
+    try {
+      respText = await resp.clone().text();
+      respData = JSON.parse(respText);
+    } catch {
+      // Not JSON, e.g., HTML or plain text error response
+      respData = null;
+    }
+
+    // --- Debug Logging Output ---
+    // eslint-disable-next-line no-console
+    console.log("SHEETDB RESPONSE:", {
+      status: resp.status,
+      ok: resp.ok,
+      respText,
+      respData,
+      error: respData && respData.error
+    });
+
     // SheetDB success: resp.ok==true and response e.g. [{created:1}]
     if (resp.ok && respData && (
       (Array.isArray(respData) && respData[0] && respData[0].created)
@@ -43,12 +71,25 @@ async function submitScoreToLeaderboard(name, attempts) {
     )) {
       return true;
     }
-    // If error message present in JSON, log it to console for debugging.
-    if (respData && respData.error) {
+
+    // Log the response for SheetDB error diagnosis
+    if (!resp.ok) {
       // eslint-disable-next-line no-console
-      console.error("SheetDB error response:", respData.error);
+      console.error(
+        "SheetDB POST failed with status:",
+        resp.status,
+        "body:",
+        respText
+      );
+    } else if (respData && respData.error) {
+      // eslint-disable-next-line no-console
+      console.error("SheetDB error response:", respData.error, respText);
+    } else {
+      // eslint-disable-next-line no-console
+      console.error("Unknown SheetDB error state. Response:", respText);
     }
     return false;
+
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error("Failed to POST to SheetDB:", e);
@@ -211,17 +252,28 @@ function App() {
     if (!playerName || !pendingScore) return;
     setSubmitLoading(true);
     setSubmitStatus("");
-    // Submit to SheetDB/Airtable API
-    const ok = await submitScoreToLeaderboard(playerName, pendingScore.tries);
-    setSubmitLoading(false);
-    if (ok) {
-      setSubmitStatus("success");
-      setTimeout(() => {
-        setShowNameModal(false);
-        setShowLeaderboard(true);
-      }, 650);
-    } else {
+    let submitError = "";
+    try {
+      // Submit to SheetDB/Airtable API
+      const ok = await submitScoreToLeaderboard(playerName, pendingScore.tries);
+      setSubmitLoading(false);
+      if (ok) {
+        setSubmitStatus("success");
+        setTimeout(() => {
+          setShowNameModal(false);
+          setShowLeaderboard(true);
+        }, 650);
+      } else {
+        submitError = "Network or SheetDB rejection. See browser console for more diagnostics.";
+        setSubmitStatus("err");
+      }
+    } catch (err) {
+      submitError = (err && err.message) ? err.message : "Unknown error";
       setSubmitStatus("err");
+    }
+    // Save error reason for debugging UI (if needed)
+    if (submitError) {
+      window._sheetdb_last_error = submitError;
     }
   };
 
@@ -467,7 +519,14 @@ function App() {
                     <div style={{color: "#2b813f", marginTop: 10}}>Score saved! Showing leaderboard...</div>
                   )}
                   {submitStatus === "err" && (
-                    <div style={{color: "#b94a48", marginTop: 10}}>Error saving score. Try again!</div>
+                    <div style={{color: "#b94a48", marginTop: 10}}>
+                      Error saving score. Try again!
+                      <br />
+                      <span style={{fontSize:12,color: "#b94a4880"}}>
+                        Diagnostics available in browser console.<br/>
+                        If problem persists, verify your input and contact support.
+                      </span>
+                    </div>
                   )}
                 </form>
               </div>
