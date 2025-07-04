@@ -421,50 +421,81 @@ function App() {
               </div>
               {/* Guess input (basic text input for now) */}
               {(status === 'in_progress') && (
-                <form
-                  style={{marginBottom: '1.5rem'}}
-                  onSubmit={e => { e.preventDefault(); handleGuessSubmit(); }}
-                  aria-label="Guess input form"
-                >
-                  <input
-                    type="text"
-                    inputMode="text"
-                    maxLength={5}
-                    value={currentGuess}
-                    onChange={handleInputChange}
-                    onKeyUp={handleInputKeyUp}
-                    style={{
-                      padding: '8px',
-                      fontSize: 20,
-                      width: 120,
-                      textAlign: 'center',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: 8,
-                      backgroundColor: 'var(--bg-secondary)',
-                      color: 'var(--text-primary)'
-                    }}
-                    disabled={status !== 'in_progress' || loadingSolution}
-                    aria-label="Enter 5-letter guess"
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    style={{
-                      marginLeft: 12,
-                      padding: '10px 18px',
-                      backgroundColor: 'var(--button-bg)',
-                      color: 'var(--button-text)',
-                      border: 0,
-                      borderRadius: 8,
-                      fontWeight: 600,
-                      fontSize: 16,
-                      cursor: 'pointer'
-                    }}
-                    disabled={currentGuess.length !== 5 || status !== 'in_progress' || loadingSolution}
+                <>
+                  <form
+                    style={{marginBottom: '1.5rem'}}
+                    onSubmit={e => { e.preventDefault(); handleGuessSubmit(); }}
+                    aria-label="Guess input form"
                   >
-                    Guess
-                  </button>
-                </form>
+                    <input
+                      type="text"
+                      inputMode="text"
+                      maxLength={5}
+                      value={currentGuess}
+                      onChange={handleInputChange}
+                      onKeyUp={handleInputKeyUp}
+                      style={{
+                        padding: '8px',
+                        fontSize: 20,
+                        width: 120,
+                        textAlign: 'center',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 8,
+                        backgroundColor: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)'
+                      }}
+                      disabled={status !== 'in_progress' || loadingSolution}
+                      aria-label="Enter 5-letter guess"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      style={{
+                        marginLeft: 12,
+                        padding: '10px 18px',
+                        backgroundColor: 'var(--button-bg)',
+                        color: 'var(--button-text)',
+                        border: 0,
+                        borderRadius: 8,
+                        fontWeight: 600,
+                        fontSize: 16,
+                        cursor: 'pointer'
+                      }}
+                      disabled={currentGuess.length !== 5 || status !== 'in_progress' || loadingSolution}
+                    >
+                      Guess
+                    </button>
+                  </form>
+                  {/* --- HINT for FINAL GUESS --- */}
+                  {guesses.length === 5 && secretWord && (
+                    <div
+                      style={{
+                        margin: "0.7rem auto 0.6rem",
+                        padding: "11px 16px",
+                        maxWidth: 360,
+                        borderRadius: 10,
+                        background: "#ffe19f",
+                        color: "#613320",
+                        fontWeight: 600,
+                        fontSize: 18,
+                        letterSpacing: 1,
+                        border: "2px solid #ffce64",
+                        boxShadow: "0 0 8px #f6d07c60"
+                      }}
+                      aria-live="polite"
+                    >
+                      <span role="img" aria-label="hint" style={{marginRight: 7}}>💡</span>
+                      <span>Hint: The word starts with <b>{secretWord[0]}</b> &mdash; Try: <b>
+                        {secretWord
+                          .split('')
+                          .sort(() => Math.random() - 0.5)
+                          .join('')
+                          .toUpperCase()
+                        }
+                      </b></span>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Game state controls */}
