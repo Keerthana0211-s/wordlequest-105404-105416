@@ -205,6 +205,19 @@ function App() {
     startNewGame();
   }, [startNewGame]);
 
+  // Play sound effect (SFX) on win/loss outcome NOTICE for accessibility and correctness
+  useEffect(() => {
+    // Only play when entering win or loss state
+    if (status === 'win') {
+      playCorrectSound();
+    }
+    if (status === 'loss') {
+      playIncorrectSound();
+    }
+    // No sound otherwise
+    // eslint-disable-next-line
+  }, [status]);
+
   // Handle guess submission (called on Enter key or soon via on-screen keyboard)
   const handleGuessSubmit = useCallback(() => {
     if (status !== 'in_progress' || loadingSolution || !secretWord) return;
@@ -227,22 +240,32 @@ function App() {
     const newGuesses = [...guesses, guess];
     setGuesses(newGuesses);
     setAttempt(attempt + 1);
-    // Check for win/loss
+    // Only provide interim feedback sound for non-terminal guess
+    let outcome = null;
     if (guess === secretWord) {
+      outcome = 'win';
+    } else if (newGuesses.length >= 6) {
+      outcome = 'loss';
+    } else {
+      outcome = 'in_progress';
+    }
+    setCurrentGuess('');
+
+    // Handle win/loss/outcome and play sfx at correct time via useEffect below
+    if (outcome === 'win') {
       setStatus('win');
       setMessage('You win! 🎉');
-      playCorrectSound();
       setShowNameModal(true);
-      setPendingScore({ tries: newGuesses.length }); // Save attempts for modal
-    } else if (newGuesses.length >= 6) {
+      setPendingScore({ tries: newGuesses.length });
+      // SFX: playCorrectSound will be triggered by useEffect for win to avoid race with state
+    } else if (outcome === 'loss') {
       setStatus('loss');
       setMessage(`Game Over. Word was: ${secretWord}`);
-      playIncorrectSound();
+      // SFX: playIncorrectSound will be triggered by useEffect for loss to avoid race with state
     } else {
       setMessage(`${6 - newGuesses.length} attempts left.`);
       playIncorrectSound();
     }
-    setCurrentGuess('');
   }, [currentGuess, guesses, secretWord, attempt, status, loadingSolution]);
 
   // Handle text/keyboard input for the current guess (for now, simple input)
