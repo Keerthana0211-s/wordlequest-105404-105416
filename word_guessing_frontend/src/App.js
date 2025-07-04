@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import Leaderboard from "./Leaderboard";
+import { playCorrectSound, playIncorrectSound } from "./sfx";
 
 /*
   --- INITIAL MAIN GAME STATE MANAGEMENT ---
@@ -122,14 +123,17 @@ function App() {
     const guess = currentGuess.trim().toUpperCase();
     if (guess.length !== 5) {
       setMessage('Enter a 5-letter word.');
+      playIncorrectSound();
       return;
     }
     if (!/^[A-Z]{5}$/.test(guess)) {
       setMessage('Use only letters A-Z.');
+      playIncorrectSound();
       return;
     }
     if (guesses.includes(guess)) {
       setMessage('You already guessed that!');
+      playIncorrectSound();
       return;
     }
     const newGuesses = [...guesses, guess];
@@ -139,13 +143,16 @@ function App() {
     if (guess === secretWord) {
       setStatus('win');
       setMessage('You win! 🎉');
+      playCorrectSound();
       setShowNameModal(true);
       setPendingScore({ tries: newGuesses.length }); // Save attempts for modal
     } else if (newGuesses.length >= 6) {
       setStatus('loss');
       setMessage(`Game Over. Word was: ${secretWord}`);
+      playIncorrectSound();
     } else {
       setMessage(`${6 - newGuesses.length} attempts left.`);
+      playIncorrectSound();
     }
     setCurrentGuess('');
   }, [currentGuess, guesses, secretWord, attempt, status, loadingSolution]);
