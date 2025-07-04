@@ -20,20 +20,38 @@ import { playCorrectSound, playIncorrectSound } from "./sfx";
 */
 const LEADERBOARD_API = "https://sheetdb.io/api/v1/jm22e5onx3agw";
 
-// PUBLIC_INTERFACE
 /**
  * Submit a score (name, attempts) to SheetDB leaderboard via POST
+ * Improved: Ensures attempts is string, logs response error, returns true only if insert confirmed.
  */
 async function submitScoreToLeaderboard(name, attempts) {
-  // SheetDB expects {"data": [{name:..., attempts:...}]}
+  // SheetDB expects attempts as type string, and fields as string keys.
+  const payload = { data: [{ name: String(name), attempts: String(attempts) }] };
   try {
     const resp = await fetch(LEADERBOARD_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: [{ name, attempts }] })
+      body: JSON.stringify(payload)
     });
-    return resp.ok;
+    let respData = null;
+    try { respData = await resp.json(); } catch {}
+    
+    // SheetDB success: resp.ok==true and response e.g. [{created:1}]
+    if (resp.ok && respData && (
+      (Array.isArray(respData) && respData[0] && respData[0].created)
+      || (respData.created)
+    )) {
+      return true;
+    }
+    // If error message present in JSON, log it to console for debugging.
+    if (respData && respData.error) {
+      // eslint-disable-next-line no-console
+      console.error("SheetDB error response:", respData.error);
+    }
+    return false;
   } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to POST to SheetDB:", e);
     return false;
   }
 }
