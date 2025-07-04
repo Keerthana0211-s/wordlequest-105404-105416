@@ -135,51 +135,62 @@ function App() {
         <h1 style={{margin: 0, letterSpacing: '2px'}}>Word Guess</h1>
         <p style={{margin: "0.5rem 0 1.5rem", fontWeight: 400, fontSize: "1rem"}}>{message}</p>
         
-        {/* Past guesses */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.2rem',
-            maxWidth: '260px',
-            margin: '0 auto',
-            marginBottom: '1rem'
-          }}
-          aria-label="Previous guesses"
-        >
-          {Array.from({length: 6}).map((_, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: '0.2rem'
-              }}
-            >
-              {(guesses[i] ? guesses[i] : '').padEnd(5, ' ').split('').map((ch, ci) =>
-                <span key={ci}
-                  style={{
-                    border: '1px solid var(--border-color)',
-                    background: '#fff2',
-                    borderRadius: '4px',
-                    minWidth: 32,
-                    minHeight: 40,
-                    display: 'inline-flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    fontSize: 20,
-                    fontWeight: 600,
-                    color: 'var(--text-primary)',
-                    backgroundColor: '#e9ecef'
-                  }}
-                  aria-label={ch !== ' ' ? ch : 'empty'}
-                >
-                  {ch}
-                </span>
-              )}
-            </div>
-          ))}
+        {/* Guess Grid (6x5) */}
+        <div className="guess-grid" aria-label="Guess grid">
+          {
+            Array.from({ length: 6 }).map((_, rowIdx) => {
+              // For rows with a guess: compute feedback
+              const guess = guesses[rowIdx] || '';
+              const guessLetters = guess.padEnd(5, ' ').split('');
+              let feedback = Array(5).fill('empty');
+              if (guesses[rowIdx]) {
+                // Feedback logic: "green" for correct pos, "yellow" for right letter/wrong pos, "gray" if absent
+                const answerArr = secretWord.split('');
+                const guessArr = guess.split('');
+                const used = Array(5).fill(false);
+                feedback = Array(5).fill('gray');
+
+                // Pass 1: greens
+                for (let i = 0; i < 5; i++) {
+                  if (guessArr[i] === answerArr[i]) {
+                    feedback[i] = 'green';
+                    used[i] = true;
+                  }
+                }
+                // Pass 2: yellows
+                for (let i = 0; i < 5; i++) {
+                  if (feedback[i] === 'green') continue;
+                  const idx = answerArr.findIndex(
+                    (ch, j) => ch === guessArr[i] && !used[j] && guessArr[j] !== answerArr[j]
+                  );
+                  if (idx !== -1 && guessArr[i] !== '' && guessArr[i] !== ' ') {
+                    feedback[i] = 'yellow';
+                    used[idx] = true;
+                  }
+                }
+              } else if (rowIdx === guesses.length && status === 'in_progress') {
+                // The active row—show input so far, rest empty, no feedback coloring
+                const inputLetters = currentGuess.padEnd(5, ' ').split('');
+                for (let j = 0; j < 5; j++) {
+                  guessLetters[j] = inputLetters[j];
+                }
+                feedback = Array(5).fill('empty');
+              }
+              return (
+                <div className="guess-row" key={rowIdx}>
+                  {guessLetters.map((ch, colIdx) => (
+                    <div
+                      key={colIdx}
+                      className={`guess-cell guess-cell-${feedback[colIdx]}`}
+                      aria-label={ch !== ' ' ? ch : 'empty'}
+                    >
+                      {ch}
+                    </div>
+                  ))}
+                </div>
+              );
+            })
+          }
         </div>
         {/* Guess input (basic text input for now) */}
         {(status === 'in_progress') && (

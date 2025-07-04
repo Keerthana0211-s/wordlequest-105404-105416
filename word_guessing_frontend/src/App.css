@@ -93,6 +93,97 @@
   }
 }
 
+/* Game Color Variables */
+:root {
+  --guess-green: #6aaa64;    /* correct spot (primary) */
+  --guess-yellow: #c9b458;   /* wrong spot (secondary) */
+  --guess-gray: #787c7e;     /* absent (accent) */
+}
+
+/* Guess Grid */
+.guess-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0 auto 1.5rem auto;
+  max-width: 320px;
+  min-width: 260px;
+  width: 100%;
+  user-select: none;
+}
+.guess-row {
+  display: flex;
+  flex-direction: row;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+.guess-cell {
+  width: 46px;
+  height: 54px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.55rem;
+  font-weight: 700;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  text-transform: uppercase;
+  transition: background 0.20s, border 0.20s, color 0.20s;
+  outline: none;
+}
+.guess-cell-empty {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  color: var(--text-primary);
+}
+.guess-cell-green {
+  background: var(--guess-green);
+  color: #fff;
+  border: 2px solid var(--guess-green);
+  animation: pop 0.25s;
+}
+.guess-cell-yellow {
+  background: var(--guess-yellow);
+  color: #fff;
+  border: 2px solid var(--guess-yellow);
+  animation: pop 0.25s;
+}
+.guess-cell-gray {
+  background: var(--guess-gray);
+  color: #fff;
+  border: 2px solid var(--guess-gray);
+  animation: pop 0.25s;
+}
+
+/* Subtle pop animation for cell color feedback */
+@keyframes pop {
+  0%   { transform: scale(1.2);}
+  80%  { transform: scale(0.95);}
+  100% { transform: scale(1);}
+}
+
+/* Responsive - grid/cell sizing on mobile */
+@media (max-width: 600px) {
+  .guess-grid {
+    max-width: 98vw;
+    min-width: 0;
+    gap: 0.19rem;
+  }
+  .guess-row {
+    gap: 0.19rem;
+  }
+  .guess-cell {
+    width: 38px;
+    height: 42px;
+    font-size: 1.2rem;
+  }
+}
+
+/* ...existing CSS... */
+
 /* Responsive design for mobile */
 @media (max-width: 768px) {
   .theme-toggle {
