@@ -21,79 +21,99 @@ import { playCorrectSound, playIncorrectSound } from "./sfx";
 const LEADERBOARD_API = "https://sheetdb.io/api/v1/jm22e5onx3agw";
 
 /**
- * Submit a score (name, attempts) to SheetDB leaderboard via POST
- * Improved: Ensures attempts is string, logs response error, returns true only if insert confirmed.
+ * Submit a score (name, attempts) to SheetDB leaderboard via POST.
+ * 
+ * Enhanced:
+ * - Logs full request (body/headers etc) and full response/error to assist debugging.
+ * - Matches SheetDB API docs: POST shape is {data:[{...fields}]} at top level.
+ * - All values are forcibly stringified. Field names are lower-cased and exactly as in SheetDB.
+ * - Ensures correct Content-Type headers.
+ * - On SheetDB API error, returns the precise response for UI/console display.
+ *
+ * @param {string} name - Player name (must match SheetDB field exactly: 'name')
+ * @param {string|number} attempts - Attempts (as string; field exact: 'attempts')
+ * @returns {object} result { ok: bool, error: string|null, sheetdb_response: any }
  */
 async function submitScoreToLeaderboard(name, attempts) {
-  // SheetDB expects attempts as type string, and fields as string keys.
-  const payload = { data: [{ name: String(name), attempts: String(attempts) }] };
+  // SheetDB API expects: { data: [ { name:..., attempts:... } ] }, field names = sheet headers.
+  // All values must be string, and Content-Type = "application/json"
+  // Compare: https://sheetdb.io/api
+  const payload = { data: [ { name: String(name), attempts: String(attempts) } ] };
 
-  // --- Debug Logging Start ---
+  const outgoingHeaders = {
+    "Content-Type": "application/json"
+  };
+  // Log full outgoing request (headers, endpoint, payload)
   // eslint-disable-next-line no-console
-  console.log("SUBMIT SCORE: About to POST to SheetDB", {
+  console.log("SUBMIT_SCORE_TO_SHEETDB: Outgoing POST", {
     url: LEADERBOARD_API,
-    headers: { "Content-Type": "application/json" },
-    payload: JSON.stringify(payload)
+    headers: outgoingHeaders,
+    payload
   });
-  // --- Debug Logging End ---
+
+  let resp = null;
+  let respText = null;
+  let respData = null;
 
   try {
-    const resp = await fetch(LEADERBOARD_API, {
+    resp = await fetch(LEADERBOARD_API, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: outgoingHeaders,
       body: JSON.stringify(payload)
     });
 
-    let respText = null;
-    let respData = null;
+    // Always get raw response text for diagnostics
+    respText = await resp.clone().text();
+
+    // SheetDB returns JSON for success/error, sometimes string on http error
     try {
-      respText = await resp.clone().text();
       respData = JSON.parse(respText);
     } catch {
-      // Not JSON, e.g., HTML or plain text error response
       respData = null;
     }
 
-    // --- Debug Logging Output ---
+    // Log full incoming response (status, body, etc)
     // eslint-disable-next-line no-console
-    console.log("SHEETDB RESPONSE:", {
+    console.log("SHEETDB POST RESPONSE", {
       status: resp.status,
       ok: resp.ok,
       respText,
-      respData,
-      error: respData && respData.error
+      respData
     });
 
-    // SheetDB success: resp.ok==true and response e.g. [{created:1}]
-    if (resp.ok && respData && (
-      (Array.isArray(respData) && respData[0] && respData[0].created)
-      || (respData.created)
-    )) {
-      return true;
+    // "success" if status is 201/200 and {created:...} property exists (per docs)
+    let created = null;
+    if (respData && Array.isArray(respData) && respData[0] && 'created' in respData[0]) {
+      created = respData[0].created;
+    } else if (respData && 'created' in respData) {
+      created = respData.created;
     }
 
-    // Log the response for SheetDB error diagnosis
-    if (!resp.ok) {
-      // eslint-disable-next-line no-console
-      console.error(
-        "SheetDB POST failed with status:",
-        resp.status,
-        "body:",
-        respText
-      );
-    } else if (respData && respData.error) {
-      // eslint-disable-next-line no-console
-      console.error("SheetDB error response:", respData.error, respText);
-    } else {
-      // eslint-disable-next-line no-console
-      console.error("Unknown SheetDB error state. Response:", respText);
+    if (resp.ok && created && parseInt(created,10)>0) {
+      return { ok: true, error: null, sheetdb_response: respData };
     }
-    return false;
+
+    // If SheetDB replied with error, return info for display.
+    let apiError = null;
+    if (respData && respData.error) apiError = respData.error;
+    if (!resp.ok) {
+      apiError = apiError || `HTTP ${resp.status}`;
+    }
+    return {
+      ok: false,
+      error: apiError || "Error/unknown SheetDB response",
+      sheetdb_response: respData || respText
+    };
 
   } catch (e) {
+    // Log actual fetch/post error
     // eslint-disable-next-line no-console
-    console.error("Failed to POST to SheetDB:", e);
-    return false;
+    console.error("POST to SheetDB failed!", e, respText || "");
+    return {
+      ok: false,
+      error: (e && e.message) ? e.message : "Network error",
+      sheetdb_response: respText || null
+    };
   }
 }
 
@@ -253,18 +273,23 @@ function App() {
     setSubmitLoading(true);
     setSubmitStatus("");
     let submitError = "";
+    let sheetdbDetails = null;
     try {
-      // Submit to SheetDB/Airtable API
-      const ok = await submitScoreToLeaderboard(playerName, pendingScore.tries);
+      // Call updated submit, expecting {ok, error, sheetdb_response}
+      const result = await submitScoreToLeaderboard(playerName, pendingScore.tries);
       setSubmitLoading(false);
-      if (ok) {
+      sheetdbDetails = result ? result.sheetdb_response : null;
+      if (result && result.ok) {
         setSubmitStatus("success");
         setTimeout(() => {
           setShowNameModal(false);
           setShowLeaderboard(true);
         }, 650);
       } else {
-        submitError = "Network or SheetDB rejection. See browser console for more diagnostics.";
+        // Display SheetDB API error if present
+        submitError = result && result.error
+          ? `SheetDB error: ${result.error}`
+          : "Network or SheetDB rejection. See browser console for more diagnostics.";
         setSubmitStatus("err");
       }
     } catch (err) {
@@ -273,7 +298,9 @@ function App() {
     }
     // Save error reason for debugging UI (if needed)
     if (submitError) {
-      window._sheetdb_last_error = submitError;
+      window._sheetdb_last_error = submitError + (sheetdbDetails ? "\n" + JSON.stringify(sheetdbDetails) : "");
+      // Optionally also show alert for debugging
+      // window.alert("SheetDB error:\n" + submitError + (sheetdbDetails ? ("\n" + JSON.stringify(sheetdbDetails,null,2)) : ""));
     }
   };
 
@@ -323,7 +350,7 @@ function App() {
                 borderTopColor: "var(--button-bg)",
                 animation: "spin 1s linear infinite",
                 verticalAlign: "middle"
-              }}/>
+              }} />
               <style>
                 {`
                 @keyframes spin {
@@ -523,7 +550,10 @@ function App() {
                       Error saving score. Try again!
                       <br />
                       <span style={{fontSize:12,color: "#b94a4880"}}>
-                        Diagnostics available in browser console.<br/>
+                        {window._sheetdb_last_error
+                          ? <>SheetDB: {String(window._sheetdb_last_error).substring(0, 520)}<br /></>
+                          : <>Diagnostics available in browser console.<br /></>
+                        }
                         If problem persists, verify your input and contact support.
                       </span>
                     </div>
