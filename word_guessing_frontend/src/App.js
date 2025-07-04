@@ -31,15 +31,32 @@ const LEADERBOARD_API = "https://sheetdb.io/api/v1/jm22e5onx3agw";
  * - Ensures correct Content-Type headers.
  * - On SheetDB API error, returns the precise response for UI/console display.
  *
- * @param {string} name - Player name (must match SheetDB field exactly: 'name')
- * @param {string|number} attempts - Attempts (as string; field exact: 'attempts')
+ * SHEETDB COLUMN MAPPING:
+ *    SheetDB is case- and spelling-sensitive. The field names you use here MUST
+ *    exactly match your SheetDB spreadsheet headers (columns), including case.
+ *    If your columns are "Name" and "Attempts", you must use those exact names here.
+ *    Default is typically { "name", "attempts" } (lowercase) but always check SheetDB.
+ *    
+ *    The outgoing payload must be:
+ *    { "data": [ { "<column1>": value1, "<column2>": value2 } ] }
+ *    Example: { "data": [ { "name": "Alice", "attempts": "4" } ] }
+ *
+ * @param {string} name - Player name (must match SheetDB field exactly, e.g., 'name' or 'Name')
+ * @param {string|number} attempts - Attempts (as string; field exact: 'attempts' or as on SheetDB)
  * @returns {object} result { ok: bool, error: string|null, sheetdb_response: any }
  */
 async function submitScoreToLeaderboard(name, attempts) {
-  // SheetDB API expects: { data: [ { name:..., attempts:... } ] }, field names = sheet headers.
-  // All values must be string, and Content-Type = "application/json"
-  // Compare: https://sheetdb.io/api
+  // WARNING: Update the keys below to match your SheetDB spreadsheet column headers exactly (case-sensitive).
+  // If you get "Bad data format" errors, check your Sheet headers.
+  // Default:
+  //    { data: [ { name: ..., attempts: ... } ] }
+  // If your Sheet changes columns to e.g. "Name", "Tries", change to:
+  //    { data: [ { Name: ..., Tries: ... } ] }
   const payload = { data: [ { name: String(name), attempts: String(attempts) } ] };
+
+  // ---- To customize field mapping, uncomment and modify one line below: ----
+  // const payload = { data: [ { Name: String(name), Tries: String(attempts) } ] }; // Example for capitalized Sheet columns
+  // ---------------------------------------------------------------------------
 
   const outgoingHeaders = {
     "Content-Type": "application/json"
