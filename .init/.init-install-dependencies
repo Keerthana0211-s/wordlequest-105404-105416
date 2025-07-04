@@ -1,0 +1,4 @@
+{
+    "command": "npm install",
+    "working_directory": "/home/kavia/workspace/code-generation/wordlequest-105404-105416/word_guessing_frontend"
+}
