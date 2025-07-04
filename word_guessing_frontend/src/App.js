@@ -14,14 +14,17 @@ import Leaderboard from "./Leaderboard";
   - Fetch leaderboard in Leaderboard screen, sorted by ascending attempts.
 */
 
-// Mock external leaderboard API for SheetDB (public test endpoint!)
-const LEADERBOARD_API =
-  "https://sheetdb.io/api/v1/mock123456"; // <-- Replace with real SheetDB/Airtable URL when available
+/*
+  SheetDB leaderboard endpoint integration (public endpoint for storing/fetching leaderboard scores)
+*/
+const LEADERBOARD_API = "https://sheetdb.io/api/v1/jm22e5onx3agw";
 
-// Helper: Post score to the leaderboard via mock API
+// PUBLIC_INTERFACE
+/**
+ * Submit a score (name, attempts) to SheetDB leaderboard via POST
+ */
 async function submitScoreToLeaderboard(name, attempts) {
   // SheetDB expects {"data": [{name:..., attempts:...}]}
-  // API key etc. can be added as needed for private endpoints
   try {
     const resp = await fetch(LEADERBOARD_API, {
       method: "POST",

@@ -8,9 +8,8 @@ import React, { useEffect, useState } from "react";
 
 // PUBLIC_INTERFACE
 export default function Leaderboard({ onBack }) {
-  // Replace with real SheetDB/Airtable API endpoint and key
-  // Example: SheetDB (needs to be writable from browser, so using a mock endpoint)
-  const API_URL = "https://sheetdb.io/api/v1/mock123456";
+  // SheetDB API endpoint for leaderboard
+  const API_URL = "https://sheetdb.io/api/v1/jm22e5onx3agw";
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
